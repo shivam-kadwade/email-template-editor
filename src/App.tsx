@@ -9,6 +9,7 @@ const App = () => {
    
   const emailEditorRef = useRef<EditorRef>(null);
 
+  // export HTML, Design
   const exportHtml = () => {
     const unlayer = emailEditorRef.current?.editor;
     
@@ -19,23 +20,19 @@ const App = () => {
 
     // Export HTML
     unlayer.exportHtml((data) => {
-      const { html, design } = data;
+      const { html} = data;
       
-      // Export JSON design using saveDesign
+      // Export JSON design
       unlayer.saveDesign((designData: any) => {
         const designJson = designData;
-        
-        console.log('exportHtml', html);
-        console.log('saveDesign', designJson);
-        console.log('design',design)
         
         // Post both HTML and JSON to parent
         if (window.parent) {
           window.parent.postMessage({ 
             type: 'FROM_IFRAME', 
             content: {
-              html: html,
-              json: designJson
+              templateHTML: html,
+              templateDesign: designJson
             }
           }, '*');
         }
@@ -47,7 +44,7 @@ const App = () => {
   const listenToParent = () => {
     const handleMessage = (event : any) => {
 
-      // if (event.origin !== "https://your-trusted-domain.com") return;
+      // if (event.origin !== "https://org-domain.com") return;
       
       if (event.data && event.data.type === 'LOAD_TEMPLATE') {
         const templateJson = event.data.template;
@@ -73,10 +70,8 @@ const App = () => {
     }
 
     if (templateJson) {
-      console.log('Loading template:', templateJson);
       unlayer.loadDesign(templateJson);
     } else {
-      console.log('Loading default template');
       unlayer.loadDesign(defaultTemplate);
     }
   };
@@ -88,20 +83,21 @@ const App = () => {
   }, []);
 
   const onReady: EmailEditorProps['onReady'] = (unlayer) => {
-    console.log('Email editor is ready');
     loadTemplate(defaultTemplate);
     // Check if parent wants to send a template, otherwise load default
     if (window.parent && window.parent !== window) {
-      // Request template from parent
       window.parent.postMessage({ 
         type: 'REQUEST_TEMPLATE'
       }, '*');
       
-      // Set a timeout to load default template if no response from parent
+      // load default if no response from parent
       setTimeout(() => {
-        // Only load default if no template has been loaded yet
-        unlayer.saveDesign(() => {
+        // load if no template has been loaded
+        unlayer.saveDesign((data: any) => {
+          // check for current state of design
+          if (!data.body.rows || data.body.rows.length === 0) {
             loadTemplate(defaultTemplate);
+          }
         });
       }, 1000);
     } else {
